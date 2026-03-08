@@ -19,13 +19,13 @@ static void init() {
 static void display() {}
 
 static void update() {
-  if (nc_each_frame(60)) {
-    nc_init_log();
-    nc_log_word("SRC 0", logo_Palettes.data[0]);
-    nc_log_word("DST 0", duplicated_palette[0]);
-    nc_log_info("");
-    nc_log_word("SRC 1", logo_Palettes.data[1]);
-    nc_log_word("DST 1", duplicated_palette[1]);
+  if (nc_gpu_each_frame(60)) {
+    nc_log_init();
+    nc_log_info_line("SRC 0: %04X", logo_Palettes.data[0]);
+    nc_log_info_line("DST 0: %04X", duplicated_palette[0]);
+    nc_log_next_line();
+    nc_log_info_line("SRC 1: %04X", logo_Palettes.data[1]);
+    nc_log_info("DST 1: %04X", duplicated_palette[1]);
   }
 }
 
@@ -33,7 +33,7 @@ int main(void) {
   init();
 
   while(1) {
-    nc_update();
+    nc_gpu_update();
     update();
   };
 

@@ -7,8 +7,8 @@
 
 // todo (minor) - improve neocore collision detection (bug on top of peak)
 
-static Vec2short peak_mask[PEAK_MASK_VECTOR_MAX];
-static GFX_Animated_Sprite_Physic player;
+static Position peak_mask[PEAK_MASK_VECTOR_MAX];
+static GFX_Animated_Physic_Sprite player;
 
 static GFX_Picture peak;
 static short peak_position[2] = { 100, 80 };
@@ -22,21 +22,25 @@ static void update_player();
 
 static void init() {
   init_mask();
-  nc_init_gfx_animated_sprite_physic(
+  nc_gfx_init_animated_physic_sprite(
     &player,
-    &player_sprite,
-    &player_sprite_Palettes,
+    player_sprite_sprt_rom.spriteInfo,
+    player_sprite_sprt_rom.paletteInfo,
     10,
     10,
     0,
     0
   );
-  nc_init_gfx_picture(&peak, &peak_sprite, &peak_sprite_Palettes);
+  nc_gfx_init_picture(
+    &peak,
+    peak_sprite_pict_rom.pictureInfo,
+    peak_sprite_pict_rom.paletteInfo
+  );
 }
 
 static void display() {
-  nc_display_gfx_picture(&peak, peak_position[X], peak_position[Y]);
-  nc_display_gfx_animated_sprite_physic(&player, 10, 10, PLAYER_SPRITE_ANIM_IDLE);
+  nc_gfx_display_picture(&peak, peak_position[X], peak_position[Y]);
+  nc_gfx_display_animated_physic_sprite(&player, 10, 10, PLAYER_SPRITE_ANIM_IDLE);
   display_mask_debug();
 }
 
@@ -44,8 +48,8 @@ static void display_mask_debug() {
   BYTE i = 0;
   GFX_Picture p;
   for (i = 0; i < PEAK_MASK_VECTOR_MAX; i++) {
-    nc_init_gfx_picture(&p, &dot_sprite, &dot_sprite_Palettes);
-    nc_display_gfx_picture(&p, peak_mask[i].x, peak_mask[i].y);
+    nc_gfx_init_picture(&p, dot_sprite_pict_rom.pictureInfo, dot_sprite_pict_rom.paletteInfo);
+    nc_gfx_display_picture(&p, peak_mask[i].x, peak_mask[i].y);
   }
 }
 
@@ -70,23 +74,23 @@ static void init_mask() {
 }
 
 static void update_player() {
-  Vec2short position;
-  position = nc_get_position_gfx_animated_sprite_physic(player);
-  if (nc_joypad_is_left(0) && position.x > 0) { nc_move_gfx_animated_sprite_physic(&player, -1, 0); }
-  if (nc_joypad_is_right(0) && position.x < 280) { nc_move_gfx_animated_sprite_physic(&player, 1, 0); }
+  Position position;
+  nc_gfx_get_animated_physic_sprite_position(&player, &position);
+  if (nc_joypad_is_left(0) && position.x > 0) { nc_gfx_move_animated_physic_sprite(&player, -1, 0); }
+  if (nc_joypad_is_right(0) && position.x < 280) { nc_gfx_move_animated_physic_sprite(&player, 1, 0); }
   if (nc_joypad_is_up(0) && position.y > 0) {
-    nc_move_gfx_animated_sprite_physic(&player, 0, -1);
-    nc_set_animation_gfx_animated_sprite_physic(&player, PLAYER_SPRITE_ANIM_UP);
+    nc_gfx_move_animated_physic_sprite(&player, 0, -1);
+    nc_gfx_set_animated_sprite_animation_physic(&player, PLAYER_SPRITE_ANIM_UP);
   }
   if (nc_joypad_is_down(0) && position.y < 200) {
-    nc_move_gfx_animated_sprite_physic(&player, 0, 1);
-    nc_set_animation_gfx_animated_sprite_physic(&player, PLAYER_SPRITE_ANIM_DOWN);
+    nc_gfx_move_animated_physic_sprite(&player, 0, 1);
+    nc_gfx_set_animated_sprite_animation_physic(&player, PLAYER_SPRITE_ANIM_DOWN);
   }
-  if (!nc_joypad_is_down(0) && !nc_joypad_is_up(0)) { nc_set_animation_gfx_animated_sprite_physic(&player, PLAYER_SPRITE_ANIM_IDLE); }
-  if (nc_vectors_collide(&player.box, peak_mask, PEAK_MASK_VECTOR_MAX)) {
-      if (nc_get_frame_counter() % 20) { nc_hide_gfx_animated_sprite_physic(&player); } else { nc_show_gfx_animated_sprite_physic(&player); }
-  } else { nc_show_gfx_animated_sprite_physic(&player); }
-  nc_update_animation_gfx_animated_sprite_physic(&player);
+  if (!nc_joypad_is_down(0) && !nc_joypad_is_up(0)) { nc_gfx_set_animated_sprite_animation_physic(&player, PLAYER_SPRITE_ANIM_IDLE); }
+  if (nc_math_vectors_is_collide(&player.box, peak_mask, PEAK_MASK_VECTOR_MAX)) {
+      if ((nc_gpu_get_frame_number() % 20) < 10) { nc_gfx_hide_animated_physic_sprite(&player); } else { nc_gfx_show_animated_physic_sprite(&player); }
+  } else { nc_gfx_show_animated_physic_sprite(&player); }
+  nc_gfx_update_animated_physic_sprite_animation(&player);
 }
 
 static void update() {
@@ -98,7 +102,7 @@ int main(void) {
   display();
 
   while(1) {
-    nc_update();
+    nc_gpu_update();
     update();
   };
 

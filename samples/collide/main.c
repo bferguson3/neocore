@@ -1,54 +1,58 @@
 #include <neocore.h>
 #include "externs.h"
 
-static GFX_Animated_Sprite_Physic player;
-static GFX_Picture_Physic asteroid;
+static GFX_Animated_Physic_Sprite player;
+static GFX_Physic_Picture asteroid;
 
 int main(void) {
-  nc_init_gfx_animated_sprite_physic(
+  nc_gfx_init_and_display_animated_physic_sprite(
     &player,
-    &player_sprite,
-    &player_sprite_Palettes,
+    player_sprite_sprt_rom.spriteInfo,
+    player_sprite_sprt_rom.paletteInfo,
+    10,
+    10,
     10,
     10,
     0,
-    0
+    0,
+    PLAYER_SPRITE_ANIM_IDLE
   );
-  nc_init_gfx_picture_physic(
+
+  nc_gfx_init_and_display_physic_picture(
     &asteroid,
-    &asteroid_sprite,
-    &asteroid_sprite_Palettes,
-    nc_bitwise_multiplication_8(asteroid_sprite.tileWidth),
+    asteroid_sprite_pict_rom.pictureInfo,
+    asteroid_sprite_pict_rom.paletteInfo,
+    100,
+    100,
+    32,
     32,
     0,
     0,
     AUTOBOX
   );
-  nc_display_gfx_animated_sprite_physic(&player, 10, 10, PLAYER_SPRITE_ANIM_IDLE);
-  nc_display_gfx_picture_physic(&asteroid, 100, 100);
 
   while(1) {
-    Vec2short position;
-    nc_update();
-    position = nc_get_position_gfx_animated_sprite_physic(player);
-    if (nc_joypad_is_left(0) && position.x > 0) { nc_move_gfx_animated_sprite_physic(&player, -1, 0); }
-    if (nc_joypad_is_right(0) && position.x < 280) { nc_move_gfx_animated_sprite_physic(&player, 1, 0); }
+    Position position;
+    nc_gpu_update();
+    nc_gfx_get_animated_physic_sprite_position(&player, &position);
+    if (nc_joypad_is_left(0) && position.x > 0) { nc_gfx_move_animated_physic_sprite(&player, -1, 0); }
+    if (nc_joypad_is_right(0) && position.x < 280) { nc_gfx_move_animated_physic_sprite(&player, 1, 0); }
 
     if (nc_joypad_is_up(0) && position.y > 0) {
-      nc_move_gfx_animated_sprite_physic(&player, 0, -1);
-      nc_set_animation_gfx_animated_sprite_physic(&player, PLAYER_SPRITE_ANIM_UP);
+      nc_gfx_move_animated_physic_sprite(&player, 0, -1);
+      nc_gfx_set_animated_sprite_animation_physic(&player, PLAYER_SPRITE_ANIM_UP);
     }
     if (nc_joypad_is_down(0) && position.y < 200) {
-      nc_move_gfx_animated_sprite_physic(&player, 0, 1);
-      nc_set_animation_gfx_animated_sprite_physic(&player, PLAYER_SPRITE_ANIM_DOWN);
+      nc_gfx_move_animated_physic_sprite(&player, 0, 1);
+      nc_gfx_set_animated_sprite_animation_physic(&player, PLAYER_SPRITE_ANIM_DOWN);
     }
-    if (!nc_joypad_is_down(0) && !nc_joypad_is_up(0)) { nc_set_animation_gfx_animated_sprite_physic(&player, PLAYER_SPRITE_ANIM_IDLE); }
+    if (!nc_joypad_is_down(0) && !nc_joypad_is_up(0)) { nc_gfx_set_animated_sprite_animation_physic(&player, PLAYER_SPRITE_ANIM_IDLE); }
 
-    if (nc_collide_box(&player.box, &asteroid.box)) {
-      if (nc_get_frame_counter() % 20) { nc_hide_gfx_animated_sprite_physic(&player); } else { nc_show_gfx_animated_sprite_physic(&player); }
-    } else { nc_show_gfx_animated_sprite_physic(&player);}
+    if (nc_physic_collide_box(&player.box, &asteroid.box)) {
+      if ((nc_gpu_get_frame_number() % 20) < 10) { nc_gfx_hide_animated_physic_sprite(&player); } else { nc_gfx_show_animated_physic_sprite(&player); }
+    } else { nc_gfx_show_animated_physic_sprite(&player);}
 
-    nc_update_animation_gfx_animated_sprite_physic(&player);
+    nc_gfx_update_animated_physic_sprite_animation(&player);
   };
 
   return 0;

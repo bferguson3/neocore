@@ -8,12 +8,12 @@
 #include "bullet_player.h"
 #include "asteroid.h"
 
-static GFX_Animated_Sprite_Physic sprites[get_bullet_max()];
+static GFX_Animated_Physic_Sprite sprites[get_bullet_max()];
 
 static BOOL sprites_state[get_bullet_max()];
 static BOOL state;
 
-static GFX_Animated_Sprite_Physic *get_free_sprite();
+static GFX_Animated_Physic_Sprite *get_free_sprite();
 
 static void free_sprite(BYTE index);
 static void debug();
@@ -21,7 +21,7 @@ static void update_move();
 static void update_states(short x, short y);
 static void collide();
 
-static GFX_Animated_Sprite_Physic *get_free_sprite() {
+static GFX_Animated_Physic_Sprite *get_free_sprite() {
   BYTE i = 0;
   for (i = 0; i < get_bullet_max(); i++) {
     if (!sprites_state[i]) {
@@ -43,16 +43,16 @@ static void collide() {
 
 static void free_sprite(BYTE index) {
   sprites_state[index] = false;
-  nc_hide_gfx_animated_sprite_physic(&sprites[index]);
+  nc_gfx_hide_animated_physic_sprite(&sprites[index]);
 }
 
 static void debug() {
   BYTE i = 0;
-  nc_init_log();
+  nc_log_init();
   for (i = 0; i < get_bullet_max(); i++) {
-    nc_log_bool("STATE ", sprites_state[i]);
+    nc_log_info("STATE : %d", sprites_state[i]);
   }
-  nc_log_byte("PAL I :", sprites[0].gfx_animated_sprite.aSpriteDAT.basePalette);
+  nc_log_info("PAL I : %d", sprites[0].gfx_animated_sprite.aSpriteDAT.basePalette);
   if (nc_joypad_is_a(0)) {
     nc_log_info("JOYPAD A 1");
   } else {
@@ -61,23 +61,23 @@ static void debug() {
 }
 
 static void update_states(short x, short y) {
-  GFX_Animated_Sprite_Physic *free_aSprite;
+  GFX_Animated_Physic_Sprite *free_aSprite;
   free_aSprite = get_free_sprite();
   if (free_aSprite) {
-    Vec2short position = {x + get_bullet_xoffset(), y};
-    nc_set_position_gfx_animated_sprite_physic(free_aSprite, position.x, position.y);
-    nc_show_gfx_animated_sprite_physic(free_aSprite);
+    Position position = {x + get_bullet_xoffset(), y};
+    nc_gfx_set_animated_physic_sprite_position(free_aSprite, position.x, position.y);
+    nc_gfx_show_animated_physic_sprite(free_aSprite);
   }
 }
 
 static void update_move() {
   BYTE i = 0;
-  Vec2short position;
+  Position position;
   for (i = 0; i < get_bullet_max(); i++) {
     if (sprites_state[i]) {
-      position = nc_get_position_gfx_animated_sprite_physic(sprites[i]);
-      nc_move_gfx_animated_sprite_physic(&sprites[i], get_bullet_max(), 0);
-      nc_update_animation_gfx_animated_sprite_physic(&sprites[i]);
+      nc_gfx_get_animated_physic_sprite_position(&sprites[i], &position);
+      nc_gfx_move_animated_physic_sprite(&sprites[i], get_bullet_max(), 0);
+      nc_gfx_update_animated_physic_sprite_animation(&sprites[i]);
       if (position.x > 320) {
         free_sprite(i);
       }
@@ -90,28 +90,33 @@ void bullet_player_init() {
   state = false;
   for (i = 0; i < get_bullet_max(); i++) {
     sprites_state[i] = false;
-    nc_init_gfx_animated_sprite_physic(&sprites[i], &bullet_img, &bullet_img_Palettes, 8, 8, 0, 0);
+    nc_gfx_init_animated_physic_sprite(
+      &sprites[i],
+      bullet_img_sprt_rom.spriteInfo,
+      bullet_img_sprt_rom.paletteInfo,
+      8, 8, 0, 0
+    );
   }
 }
 
 void bullet_player_display(short x, short y) {
   BYTE i = 0;
   for (i = 0; i < get_bullet_max(); i++) {
-    nc_display_gfx_animated_sprite_physic(&sprites[i], x + (i * get_bullet_xoffset()), y, BULLET_IMG_ANIM_IDLE);
-    nc_hide_gfx_animated_sprite_physic(&sprites[i]);
+    nc_gfx_display_animated_physic_sprite(&sprites[i], x + (i * get_bullet_xoffset()), y, BULLET_IMG_ANIM_IDLE);
+    nc_gfx_hide_animated_physic_sprite(&sprites[i]);
   }
-  nc_show_gfx_animated_sprite_physic(&sprites[0]);
+  nc_gfx_show_animated_physic_sprite(&sprites[0]);
 }
 
 void bullet_player_update(BOOL pstate, short x, short y) {
   state = pstate;
   update_move();
   collide();
-  if (nc_get_frame_counter() % get_bullet_rate() == 0 && state) update_states(x, y);
+  if (nc_gpu_get_frame_number() % get_bullet_rate() == 0 && state) update_states(x, y);
 }
 
 void bullet_player_destroy() {
   BYTE i;
   bullet_player_init();
-  for (i = 0; i < get_bullet_max(); i++) nc_hide_gfx_animated_sprite_physic(&sprites[i]);
+  for (i = 0; i < get_bullet_max(); i++) nc_gfx_hide_animated_physic_sprite(&sprites[i]);
 }

@@ -1,0 +1,106 @@
+#include <neocore.h>
+#include "externs.h"
+
+#define MENU_X          10
+#define MENU_Y_DARK     10
+#define MENU_Y_RED      MENU_Y_DARK + 2
+#define MENU_Y_GREEN    MENU_Y_RED + 2
+#define MENU_Y_BLUE     MENU_Y_GREEN + 2
+
+
+#define cursorX MENU_X - 2
+static WORD cursorY = MENU_Y_RED;
+static RGB16 backdrop_color = {0x0, 0x7, 0x7, 0x7};
+
+static void init();
+static void display();
+static void display_menu();
+static void display_cursor();
+static void display_rgb_values();
+
+static void display_menu() {
+  WORD packed_color;
+  packed_color = nc_palette_rgb16_to_packed_color16(backdrop_color);
+
+  nc_log_set_position(5, 5);
+  nc_log_info("RGB COLOR MIXER");
+  nc_log_set_position(MENU_X, MENU_Y_DARK);
+  nc_log_info("DARK :");
+  nc_log_set_position(MENU_X, MENU_Y_RED);
+  nc_log_info("RED :");
+  nc_log_set_position(MENU_X, MENU_Y_GREEN);
+  nc_log_info("GREEN :");
+  nc_log_set_position(MENU_X, MENU_Y_BLUE);
+  nc_log_info_line("BLUE :");
+  nc_log_packed_color16(packed_color);
+  nc_log_next_line();
+}
+
+static void display_cursor() {
+  nc_log_set_position(cursorX, cursorY);
+  nc_log_info(">");
+}
+
+static void display_rgb_values() {
+  nc_log_set_position(MENU_X + 10, MENU_Y_DARK);
+  nc_log_info("%1X", backdrop_color.dark);
+
+  nc_log_set_position(MENU_X + 10, MENU_Y_RED);
+  nc_log_info("%1X", backdrop_color.r);
+
+  nc_log_set_position(MENU_X + 10, MENU_Y_GREEN);
+  nc_log_info("%1X", backdrop_color.g);
+
+  nc_log_set_position(MENU_X + 10, MENU_Y_BLUE);
+  nc_log_info("%1X", backdrop_color.b);
+}
+
+static void init() {
+  nc_joypad_set_edge_mode(TRUE);
+}
+
+static void display() {
+  nc_log_init();
+  display_menu();
+  display_cursor();
+  display_rgb_values();
+  nc_palette_set_backdrop_rgb16(backdrop_color);
+}
+
+int main(void) {
+  init();
+  display();
+  while(1) {
+    nc_gpu_update();
+    if (nc_joypad_is_down(0) && cursorY < MENU_Y_BLUE) {
+      cursorY += 2;
+      display();
+    } else if (nc_joypad_is_up(0) && cursorY > MENU_Y_DARK) {
+      cursorY -= 2;
+      display();
+    } else if (nc_joypad_is_right(0)) {
+      if (cursorY == MENU_Y_DARK) {
+        backdrop_color.dark++;
+      } else if (cursorY == MENU_Y_RED) {
+        backdrop_color.r++;
+      } else if (cursorY == MENU_Y_GREEN) {
+        backdrop_color.g--;
+      } else if (cursorY == MENU_Y_BLUE) {
+        backdrop_color.b++;
+      }
+      display();
+    } else if (nc_joypad_is_left(0)) {
+      if (cursorY == MENU_Y_DARK) {
+        backdrop_color.dark--;
+      } else if (cursorY == MENU_Y_RED) {
+        backdrop_color.r--;
+      } else if (cursorY == MENU_Y_GREEN) {
+        backdrop_color.g--;
+      } else if (cursorY == MENU_Y_BLUE) {
+        backdrop_color.b--;
+      }
+      display();
+    }
+  };
+  return 0;
+}

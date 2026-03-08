@@ -3,41 +3,159 @@ param (
   [string]$Name,
 
   [Parameter(Mandatory=$true)]
-  [string]$Path
+  [string]$Path,
+
+  [switch]$Force = $false
 )
 
-function Show-Error {
-  param ($message)
-  Write-Host "ERROR: $message" -ForegroundColor Red
+Import-Module "..\..\..\toolchain\scripts\modules\assert\project\name.ps1"
+Import-Module "..\..\..\toolchain\scripts\modules\assert\path.ps1"
+
+Write-Host "Creating new NeoCore project: $Name" -ForegroundColor Cyan
+Write-Host "Target path: $Path" -ForegroundColor Gray
+
+if ((-not $Force) -and (Test-Path $Path)) {
+  Write-Host "Error: $Path already exists. Use -Force to overwrite." -ForegroundColor Red
   exit 1
 }
 
-if (-not (Test-Path $Path)) {
-  try {
-    New-Item -ItemType Directory -Path $Path -Force | Out-Null
+# Validate project name
+Write-Host "Validating project name..." -ForegroundColor Yellow
+Assert-ProjectName -Name $Name
 
-    xcopy /E /I "..\..\..\src-lib" "$Path\neocore\src-lib" | Out-Null
-    if (-not $?) { Show-Error "Failed to copy src-lib." }
+# Validate critical path lengths
+Write-Host "Validating path lengths..." -ForegroundColor Yellow
+$neocoreIncludePath = "$Path\neocore\src-lib\include"
+$buildPath = "$Path\build\$Name"
 
-    Copy-Item "..\..\..\manifest.xml" "$Path\neocore"
-    if (-not $?) { Show-Error "Failed to copy manifest.xml." }
+if (-Not(Assert-PathLength -Path $neocoreIncludePath)) {
+  Write-Host "Error: NeoCore include path would be too long for GCC compatibility" -ForegroundColor Red
+  Write-Host "  Path: $neocoreIncludePath" -ForegroundColor Gray
+  Write-Host "  Length: $($neocoreIncludePath.Length) characters" -ForegroundColor Gray
+  Write-Host "  Solution: Use a shorter project path or move closer to drive root" -ForegroundColor Yellow
+  exit 1
+}
 
-    Copy-Item "..\..\..\bootstrap\.gitignore" "$Path\.gitignore"
-    if (-not $?) { Show-Error "Failed to copy .gitignore." }
+if (-Not(Assert-PathLength -Path $buildPath)) {
+  Write-Host "Error: Build path would be too long for GCC compatibility" -ForegroundColor Red
+  Write-Host "  Path: $buildPath" -ForegroundColor Gray
+  Write-Host "  Length: $($buildPath.Length) characters" -ForegroundColor Gray
+  Write-Host "  Solution: Use a shorter project path or project name" -ForegroundColor Yellow
+  exit 1
+}
 
-    xcopy /E /I "..\..\..\toolchain" "$Path\neocore\toolchain" | Out-Null
-    if (-not $?) { Show-Error "Failed to copy toolchain." }
+Write-Host "  Path lengths are compatible with GCC 2.95.2" -ForegroundColor Green
 
-    xcopy /E /I "..\..\..\bootstrap\standalone" "$Path\src" | Out-Null
-    if (-not $?) { Show-Error "Failed to copy standalone." }
+try {
+  # Create project directory
+  Write-Host "Creating project directory structure..." -ForegroundColor Cyan
+  New-Item -ItemType Directory -Path $Path -Force | Out-Null
+  Write-Host "  Created: $Path" -ForegroundColor Green
 
-    $xmlPath = "$Path\src\project.xml"
-    [xml]$xml = Get-Content -Path $xmlPath
-    $xml.project.name = $Name
-    $xml.Save($xmlPath)
-  } catch {
-    Show-Error $_.Exception.Message
+  # Copy src-lib with proper error handling
+  Write-Host "Copying NeoCore source library..." -ForegroundColor Cyan
+  $srcLibSource = "..\..\..\src-lib"
+  $srcLibDest = "$Path\neocore\src-lib"
+  Write-Host "  Source: $srcLibSource" -ForegroundColor Gray
+  Write-Host "  Destination: $srcLibDest" -ForegroundColor Gray
+
+  $xcopyOutput = cmd /c "xcopy /E /I /Y /Q `"$srcLibSource`" `"$srcLibDest`" 2>&1"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Failed to copy src-lib. Exit code: $LASTEXITCODE. Output: $xcopyOutput"
   }
-} else {
-  Write-Host "$Path already exists" -ForegroundColor Yellow
+  Write-Host "  Source library copied successfully" -ForegroundColor Green
+
+  # Copy manifest.xml
+  Write-Host "Copying project manifest..." -ForegroundColor Cyan
+  $manifestSource = "..\..\..\manifest.xml"
+  $manifestDest = "$Path\neocore\manifest.xml"
+  Copy-Item $manifestSource $manifestDest -Force
+  if (-not (Test-Path $manifestDest)) {
+    throw "Failed to copy manifest.xml"
+  }
+  Write-Host "  Manifest copied successfully" -ForegroundColor Green
+
+  # Copy .gitignore
+  Write-Host "Copying Git ignore file..." -ForegroundColor Cyan
+  $gitignoreSource = "..\..\..\bootstrap\.gitignore"
+  $gitignoreDest = "$Path\.gitignore"
+  Copy-Item $gitignoreSource $gitignoreDest -Force
+  if (-not (Test-Path $gitignoreDest)) {
+    throw "Failed to copy .gitignore"
+  }
+  Write-Host "  Git ignore file copied successfully" -ForegroundColor Green
+
+  # Copy .gitattributes
+  Write-Host "Copying Git attributes file..." -ForegroundColor Cyan
+  $gitattributesSource = "..\..\..\bootstrap\.gitattributes"
+  $gitattributesDest = "$Path\.gitattributes"
+  Copy-Item $gitattributesSource $gitattributesDest -Force
+  if (-not (Test-Path $gitattributesDest)) {
+    throw "Failed to copy .gitattributes"
+  }
+  Write-Host "  Git attributes file copied successfully" -ForegroundColor Green
+
+  # Copy toolchain
+  Write-Host "Copying NeoCore toolchain..." -ForegroundColor Cyan
+  $toolchainSource = "..\..\..\toolchain"
+  $toolchainDest = "$Path\neocore\toolchain"
+  Write-Host "  Source: $toolchainSource" -ForegroundColor Gray
+  Write-Host "  Destination: $toolchainDest" -ForegroundColor Gray
+
+  $xcopyOutput = cmd /c "xcopy /E /I /Y /Q `"$toolchainSource`" `"$toolchainDest`" 2>&1"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Failed to copy toolchain. Exit code: $LASTEXITCODE. Output: $xcopyOutput"
+  }
+  Write-Host "  Toolchain copied successfully" -ForegroundColor Green
+
+  # Copy neocore-version-switcher.bat
+  Write-Host "Copying NeoCore version switcher..." -ForegroundColor Cyan
+  $versionSwitcherBatSource = "..\..\..\bootstrap\neocore-version-switcher.bat"
+  $versionSwitcherBatDest = "$Path\neocore-version-switcher.bat"
+  Copy-Item $versionSwitcherBatSource $versionSwitcherBatDest -Force
+  if (-not (Test-Path $versionSwitcherBatDest)) {
+    throw "Failed to copy neocore-version-switcher.bat"
+  }
+  Write-Host "  Version switcher script copied successfully" -ForegroundColor Green
+
+  # Copy standalone template to src
+  Write-Host "Copying project template..." -ForegroundColor Cyan
+  $templateSource = "..\..\..\bootstrap\standalone"
+  $templateDest = "$Path\src"
+  Write-Host "  Source: $templateSource" -ForegroundColor Gray
+  Write-Host "  Destination: $templateDest" -ForegroundColor Gray
+
+  $xcopyOutput = cmd /c "xcopy /E /I /Y /Q `"$templateSource`" `"$templateDest`" 2>&1"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Failed to copy project template. Exit code: $LASTEXITCODE. Output: $xcopyOutput"
+  }
+  Write-Host "  Project template copied successfully" -ForegroundColor Green
+
+  # Customize project.xml with project name
+  Write-Host "Customizing project configuration..." -ForegroundColor Cyan
+  $xmlPath = "$Path\src\project.xml"
+
+  if (-not (Test-Path $xmlPath)) {
+    throw "Project configuration file not found: $xmlPath"
+  }
+
+  [xml]$xml = Get-Content -Path $xmlPath
+  $xml.project.name = $Name
+  $xml.Save($xmlPath)
+  Write-Host "  Set project name to '$Name' in project.xml" -ForegroundColor Green
+
+  Write-Host ""
+  Write-Host "Project '$Name' created successfully!" -ForegroundColor Green
+  Write-Host "Project location: $Path" -ForegroundColor Cyan
+  Write-Host ""
+  Write-Host "Next steps:" -ForegroundColor Yellow
+  Write-Host "  1. cd `"$Path\src`"" -ForegroundColor Gray
+  Write-Host "  2. .\mak.bat sprite    # Generate sprites" -ForegroundColor Gray
+  Write-Host "  3. .\mak.bat          # Build program" -ForegroundColor Gray
+  Write-Host "  4. .\mak.bat run:raine # Run in emulator" -ForegroundColor Gray
+} catch {
+  Write-Host ""
+  Write-Host "Project creation failed: $($_.Exception.Message)" -ForegroundColor Red
+  Write-Host "Please check the error details above and try again." -ForegroundColor Yellow
+  exit 1
 }
